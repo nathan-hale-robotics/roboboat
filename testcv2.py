@@ -40,7 +40,7 @@ def findColor(img, colorName):
   elif colorName == "green":
     return findColorRaw(cv2.bitwise_not(a), 150)
   elif colorName == "yellow": # Not very reliable; don't use
-    return findColorRaw(b, 150)
+    return findColorRaw(b, 180)
   elif colorName == "blue":
     return findColorRaw(cv2.bitwise_not(b), 160)
   else:
@@ -72,6 +72,10 @@ while True:
   for rect in findColor(img, "green"):
     x, y, w, h = rect
     cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
+
+  for rect in findColor(img, "yellow"):
+    x, y, w, h = rect
+    cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,255),2)
 
   cv2.imshow("IMAGE", img)
 
