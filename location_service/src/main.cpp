@@ -5,7 +5,7 @@ Servo myservo;
 
 void setup() {
   myservo.attach(2);  // attaches the servo on pin 9 to the servo object
-  Serial.begin(9600);
+  Serial.begin(115200);
 }
 
 char waitForChar() {
@@ -33,7 +33,7 @@ char * getUntil(char term) {
     Serial.print(b, DEC);
     Serial.print(", let: ");
     Serial.println(b);
-    if (b == term || i > length) { // end of msg, or over length
+    if (b == term || i >= length) { // end of msg, or over length
       serialFlush();
       if (i > length) {
         msg[i] = b;
@@ -51,8 +51,12 @@ char * getUntil(char term) {
 void loop() {
   char *msg = getUntil('\n');
 
-  Serial.print("I received: ");
+  Serial.println("I received: ");
+  Serial.flush();
   Serial.println(msg);
+  Serial.flush();
+  Serial.println("equals 'hello\\r\\n'");
+  Serial.println(strcmp(msg, "hello\r\n"));
 
   free(msg);
 }
