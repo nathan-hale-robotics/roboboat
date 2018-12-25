@@ -1,62 +1,40 @@
 #include <Arduino.h>
-#include <Servo.h>
+#include <Wire.h>
+#include <LSM303.h>
 
-Servo myservo;
+LSM303 compass;
 
 void setup() {
-  myservo.attach(2);  // attaches the servo on pin 9 to the servo object
   Serial.begin(115200);
+  Wire.begin();
+  compass.init();
+  compass.enableDefault();
+  compass.m_min = LSM303::vector<int16_t> {-280, -520, -780};
+  compass.m_max = LSM303::vector<int16_t> {200, 0, -660};
 }
 
-char waitForChar() {
-  delay(1);
-  while (Serial.available() <= 0);
-  return Serial.read();
+int getCompass() {
+  compass.read();
+  return compass.heading();
 }
 
-void serialFlush() {
-  delay(1);
-  while(Serial.available() > 0) {
-    delay(1);
-    Serial.read();
-  }
+int getGPSLat() {
+  return 0;
 }
 
-char * getUntil(char term) {
-  uint8_t length = 20;
-  char *msg = (char *) malloc(sizeof(char) * (length + 1));
-  char b;
-  uint8_t i = 0;
-  while (true) {
-    b = waitForChar();
-    Serial.print("I received char: num: ");
-    Serial.print(b, DEC);
-    Serial.print(", let: ");
-    Serial.println(b);
-    if (b == term || i >= length) { // end of msg, or over length
-      serialFlush();
-      if (i > length) {
-        msg[i] = b;
-      }
-      break;
-    }
-    msg[i] = b;
-    i++;
-  }
-  msg[i + 1] = '\0';
-  delay(1);
-  return msg;
+int getGPSLon() {
+  return 0;
 }
 
 void loop() {
-  char *msg = getUntil('\n');
+  Serial.print("[CP");
+  Serial.print(getCompass());
+  Serial.print("]");
 
-  Serial.println("I received: ");
-  Serial.flush();
-  Serial.println(msg);
-  Serial.flush();
-  Serial.println("equals 'hello\\r\\n'");
-  Serial.println(strcmp(msg, "hello\r\n"));
-
-  free(msg);
+  Serial.print("[GP");
+  Serial.print(getGPSLat());
+  Serial.print(",");
+  Serial.print(getGPSLon());
+  Serial.println("]");
+  delay(100);
 }
