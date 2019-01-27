@@ -69,22 +69,15 @@ void setup() {
   GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
   GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
   GPS.sendCommand(PGCMD_ANTENNA);
-
-
   delay(1000);
   GPSSerial.println(PMTK_Q_RELEASE);
 
- // the receiver
-//  PCintPort::attachInterrupt(RIGHTMOTOR, calcRightMotor,CHANGE);
-//  PCintPort::attachInterrupt(LEFTMOTOR, calcLeftMotor,CHANGE);
-//  PCintPort::attachInterrupt(AUX_IN_PIN, calcAux,CHANGE);
-    pinMode(RIGHT_MOTOR_IN, INPUT_PULLUP);
-    pinMode(LEFT_MOTOR_IN, INPUT_PULLUP);
-    pinMode(AUX_IN_PIN, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(RIGHT_MOTOR_IN),calcRightInput,CHANGE);
-    attachInterrupt(digitalPinToInterrupt(AUX_IN_PIN),calcAux,CHANGE);
-    attachInterrupt(digitalPinToInterrupt(LEFT_MOTOR_IN),calcLeftInput,CHANGE);
-
+  pinMode(RIGHT_MOTOR_IN, INPUT_PULLUP);
+  pinMode(LEFT_MOTOR_IN, INPUT_PULLUP);
+  pinMode(AUX_IN_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(RIGHT_MOTOR_IN),calcRightInput,CHANGE);
+  attachInterrupt(digitalPinToInterrupt(AUX_IN_PIN),calcAux,CHANGE);
+  attachInterrupt(digitalPinToInterrupt(LEFT_MOTOR_IN),calcLeftInput,CHANGE);
 }
 
 
@@ -95,10 +88,10 @@ void setup() {
 SIGNAL(TIMER0_COMPA_vect) {
   char c = GPS.read();
   if (GPSECHO) {
-      if (c) {
-        Serial.print(c);
-      }
+    if (c) {
+      Serial.print(c);
     }
+  }
 }
 
 
@@ -121,7 +114,7 @@ double getGPSLon() {
 void runCommand(String command) {
   int num = 0;
   String str = "";
-  if(command.startsWith("MR")){
+  if(command.startsWith("MR")) {
     Serial.println("right motor initiated");
     str = command.substring(2);
     num = str.toInt();
@@ -129,8 +122,7 @@ void runCommand(String command) {
     num = map(num, 0, 100, 1000, 2000);
     rightMotor.writeMicroseconds(num);
     Serial.println("MR set to: " + String(num));
-    }
-    else if(command.startsWith("ML")){
+  } else if (command.startsWith("ML")) {
     Serial.println("left motor initiated");
     str = command.substring(2);
     num = str.toInt();
@@ -138,40 +130,31 @@ void runCommand(String command) {
     num = map(num, 0, 100, 1000, 2000);
     leftMotor.writeMicroseconds(num);
     Serial.println("ML set to: " + String(num));
-    }
-    else if(command.startsWith("CP")){
-      Serial.println("CP is: " + String(getCompass()));
-      }
-      else if(command.startsWith("GP")){
-      Serial.println("GP is: " + String(getGPSLat()) + ", -" + String(getGPSLon()));
-      }
+  } else if (command.startsWith("CP")) {
+    Serial.println("CP is: " + String(getCompass()));
+  } else if( command.startsWith("GP")) {
+    Serial.println("GP is: " + String(getGPSLat()) + ", -" + String(getGPSLon()));
+  }
 }
 
 void serialEvent(){
-  while(Serial.available()){
+  while(Serial.available()) {
     char c = (char)Serial.read();
-    if(c == '['){
-      //just incase string is growing withour bound
+    if(c == '[') {
       msg = "";
       msgComplete = false;
-      }
-      else if(c == ']'){
-        msgComplete = true;
-      }
-      else{
-        msg += c;
-      }
+    } else if(c == ']') {
+      msgComplete = true;
+    } else {
+      msg += c;
     }
+  }
 }
-/////
+
 void loop() {
-// if new signal, set to false
   if(bNewRightMotorSignal) {
     bNewRightMotorSignal = false;
   }
-
-
-
 
   Serial.print("unAuxIn: ");
   Serial.println(unAuxIn);
@@ -179,23 +162,15 @@ void loop() {
   Serial.print("unRightMotor: ");
   Serial.println(unRightMotor);
 
-  if(unAuxIn <= 1300){
-  //manual mode
-    //Serial.println("manual");
+  if (unAuxIn <= 1300) { // manual mode
     rightMotor.writeMicroseconds(unRightMotor);
     leftMotor.writeMicroseconds(unLeftMotor);
 
-  } else if(unAuxIn > 1300 && unAuxIn < 1700){
-    //Serial.println("disabled");
+  } else if (unAuxIn > 1300 && unAuxIn < 1700) { // disabled
     rightMotor.writeMicroseconds(1500);
     leftMotor.writeMicroseconds(1500);
-
-  } else if(unAuxIn >= 1700){
-    //Serial.println("auto");
-//    rightMotor.writeMicroseconds(unRightMotor);
-//    leftMotor.writeMicroseconds(unLeftMotor);
-
-    if(msgComplete){
+  } else if (unAuxIn >= 1700) { // auto mode
+    if (msgComplete) {
       Serial.println("msg: ");
       Serial.println(msg);
 
@@ -204,90 +179,52 @@ void loop() {
       msgComplete = false;
     }
   }
-  ////////////////////////////
-//  if (GPS.newNMEAreceived()) {
-//    if (!GPS.parse(GPS.lastNMEA()))
-//      return;
-//  }
-//
-//  if (millis() - timer > 2000) {
-//    timer = millis(); // reset the timer
-//    if (GPS.fix) {
-//      Serial.print("Location: ");
-//      Serial.print(GPS.latitude, 4); Serial.print(GPS.lat);
-//      Serial.print(", ");
-//      Serial.print(GPS.longitude, 4); Serial.println(GPS.lon);
-//      Serial.print("Speed (knots): "); Serial.println(GPS.speed);
-//      Serial.print("Angle: "); Serial.println(GPS.angle);
-//      Serial.print("Altitude: "); Serial.println(GPS.altitude);
-//      Serial.print("Satellites: "); Serial.println((int)GPS.satellites);
-//    }
-//    else{
-//      Serial.println("no fix");
-//      }
-//
-//
+  //////////////////////////
+  if (GPS.newNMEAreceived()) {
+    if (!GPS.parse(GPS.lastNMEA()))
+      return;
+  }
+
+  if (millis() - timer > 2000) {
+    timer = millis(); // reset the timer
+    if (GPS.fix) {
+      Serial.print("Location: ");
+      Serial.print(GPS.latitude, 4); Serial.print(GPS.lat);
+      Serial.print(", ");
+      Serial.print(GPS.longitude, 4); Serial.println(GPS.lon);
+      Serial.print("Speed (knots): "); Serial.println(GPS.speed);
+      Serial.print("Angle: "); Serial.println(GPS.angle);
+      Serial.print("Altitude: "); Serial.println(GPS.altitude);
+      Serial.print("Satellites: "); Serial.println((int)GPS.satellites);
+    } else {
+      Serial.println("no fix");
+    }
+  }
+
   delay(100);
 }
 
-
-
-//void calcLeftMotor()
-//{
-//  if(digitalRead(LEFTMOTOR) == HIGH)
-//  {
-//    ulLeftMotorStart = micros();
-//  }
-//  else
-//  {
-//    unLeftMotor = (uint16_t)(micros() - ulLeftMotorStart);
-//    bUpdateFlagsShared |= LEFT_FLAG;
-//  }
-//}
-
-void calcAux()
-{
-  if(digitalRead(AUX_IN_PIN) == HIGH)
-  {
+void calcAux() {
+  if(digitalRead(AUX_IN_PIN) == HIGH) {
     ulAuxStart = micros();
-  }
-  else
-  {
+  } else {
     unAuxIn = (uint16_t)(micros() - ulAuxStart);
   }
 }
 
 
-void calcRightInput()
-{
-
-  // if the pin is high, its the start of an interrupt
-  if(digitalRead(RIGHT_MOTOR_IN) == HIGH)
-  {
-    // get the time using micros - when our code gets really busy this will become inaccurate, but for the current application its
-    // easy to understand and works very well
+void calcRightInput() {
+  if(digitalRead(RIGHT_MOTOR_IN) == HIGH) {
     ulRightMotorStart = micros();
-  }
-  else
-  {
+  } else {
     unRightMotor = (int)(micros() - ulRightMotorStart);
-
   }
 }
 
-void calcLeftInput()
-{
-
-  // if the pin is high, its the start of an interrupt
-  if(digitalRead(LEFT_MOTOR_IN) == HIGH)
-  {
-    // get the time using micros - when our code gets really busy this will become inaccurate, but for the current application its
-    // easy to understand and works very well
+void calcLeftInput() {
+  if (digitalRead(LEFT_MOTOR_IN) == HIGH) {
     ulLeftMotorStart = micros();
-  }
-  else
-  {
+  } else {
     unLeftMotor = (int)(micros() - ulLeftMotorStart);
-
   }
 }
