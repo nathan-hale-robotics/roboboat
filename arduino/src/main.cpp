@@ -1,105 +1,293 @@
+//190120combinedStringMessHardwareSerial
 #include <Arduino.h>
+#include <Wire.h>
+#include <LSM303.h>
+#include <Adafruit_GPS.h>
 #include <Servo.h>
-#include <gps.cpp>
+//for receiver
+//#define THROTTLE_SIGNAL_IN 0 // INTERRUPT 0 = DIGITAL PIN 2 - use the interrupt number in attachInterrupt
+//#define THROTTLE_SIGNAL_IN_PIN 2 // INTERRUPT 0 = DIGITAL PIN 2 - use the PIN number in digitalRead
+#define NEUTRAL_THROTTLE 1500 // this is the duration in microseconds of neutral throttle on an electric RC Car
+
+volatile int RightMotorIn = NEUTRAL_THROTTLE; // volatile, we set this in the Interrupt and read it in loop so it must be declared volatile
+volatile unsigned long ulStartRightMotor = 0; // set in the interrupt
+volatile boolean bNewRightMotorSignal = false;
+
+#define GPSSerial Serial2
+Adafruit_GPS GPS(&GPSSerial);
+
+#define GPSECHO false
+
+#define RIGHT_MOTOR_IN 2 //8, used to be Throttle
+#define LEFT_MOTOR_IN 3 //9, used to be Steer
+#define AUX_IN_PIN 19 //manual (1), disabled (2), auto (3)
+
+// Assign your channel out pins
+#define RIGHTMOTOR_OUT 5
+#define LEFTMOTOR_OUT 6
+
+#define RIGHT_FLAG 1
+#define LEFT_FLAG 2
+#define AUX_FLAG 4
+volatile uint8_t bUpdateFlagsShared;
+volatile uint16_t unRightMotor = 1500;
+volatile uint16_t unLeftMotor = 1500;
+volatile uint16_t unAuxIn = 2000;
+uint32_t ulRightMotorStart;
+uint32_t ulLeftMotorStart;
+uint32_t ulAuxStart;
 
 Servo rightMotor;
 Servo leftMotor;
+LSM303 compass;
+
+////////////// move to setup loop dad
+String msg = "";
+bool msgComplete = false;
+
+
+uint32_t timer = millis();
 
 void setup() {
-  rightMotor.attach(2);
-  leftMotor.attach(3);
+  msg.reserve(21);
+
+  rightMotor.attach(RIGHTMOTOR_OUT); // was 2
+  leftMotor.attach(LEFTMOTOR_OUT); // was 3
+  //set to initial value
+  rightMotor.writeMicroseconds(1500);
+  leftMotor.writeMicroseconds(1500);
+
   Serial.begin(115200);
-  setupGPS();
+  Wire.begin();
+  compass.init();
+  compass.enableDefault();
+  compass.m_min = LSM303::vector<int16_t> {-280, -520, -780};
+  compass.m_max = LSM303::vector<int16_t> {200, 0, -660};
+
+  // setup GPS
+  GPS.begin(9600);
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
+  GPS.sendCommand(PGCMD_ANTENNA);
+
+
+  delay(1000);
+  GPSSerial.println(PMTK_Q_RELEASE);
+
+ // the receiver
+//  PCintPort::attachInterrupt(RIGHTMOTOR, calcRightMotor,CHANGE);
+//  PCintPort::attachInterrupt(LEFTMOTOR, calcLeftMotor,CHANGE);
+//  PCintPort::attachInterrupt(AUX_IN_PIN, calcAux,CHANGE);
+    pinMode(RIGHT_MOTOR_IN, INPUT_PULLUP);
+    pinMode(LEFT_MOTOR_IN, INPUT_PULLUP);
+    pinMode(AUX_IN_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(RIGHT_MOTOR_IN),calcRightInput,CHANGE);
+    attachInterrupt(digitalPinToInterrupt(AUX_IN_PIN),calcAux,CHANGE);
+    attachInterrupt(digitalPinToInterrupt(LEFT_MOTOR_IN),calcLeftInput,CHANGE);
+
 }
 
-char waitForChar() {
-  delay(1);
-  while (Serial.available() <= 0);
-  return Serial.read();
-}
 
-void serialFlush() {
-  delay(1);
-  while(Serial.available() > 0) {
-    delay(1);
-    Serial.read();
-  }
-}
 
-void getCommand(char *buff) {
-  char b;
-  uint8_t i = 0;
-  bool inCommand = false;
-  while (true) {
-    b = waitForChar();
-    Serial.print("I received char: num: ");
-    Serial.print(b, DEC);
-    Serial.print(", let: ");
-    Serial.println(b);
-    if (b == '[') {
-      inCommand = true;
-      i = 0;
-      continue;
+/////////////////////
+
+///////////////////Sensor functions
+SIGNAL(TIMER0_COMPA_vect) {
+  char c = GPS.read();
+  if (GPSECHO) {
+      if (c) {
+        Serial.print(c);
+      }
     }
-    if ((b == ']' && inCommand) || i >= 20) {
-      serialFlush();
-      inCommand = false;
-      buff[i] = '\0';
-      return;
+}
+
+
+float getCompass() {
+  Serial.println("entered getCompass");
+  compass.read();
+  Serial.println("starting compass.heading");
+  return compass.heading();
+  Serial.println("exit getCompass");
+}
+
+double getGPSLat() {
+  return GPS.latitudeDegrees;
+}
+
+double getGPSLon() {
+  return GPS.longitudeDegrees;
+}
+
+void runCommand(String command) {
+  int num = 0;
+  String str = "";
+  if(command.startsWith("MR")){
+    Serial.println("right motor initiated");
+    str = command.substring(2);
+    num = str.toInt();
+    num = constrain(num, 0, 100);
+    num = map(num, 0, 100, 1000, 2000);
+    rightMotor.writeMicroseconds(num);
+    Serial.println("MR set to: " + String(num));
     }
-    buff[i] = b;
-    i++;
-  }
+    else if(command.startsWith("ML")){
+    Serial.println("left motor initiated");
+    str = command.substring(2);
+    num = str.toInt();
+    num = constrain(num, 0, 100);
+    num = map(num, 0, 100, 1000, 2000);
+    leftMotor.writeMicroseconds(num);
+    Serial.println("ML set to: " + String(num));
+    }
+    else if(command.startsWith("CP")){
+      Serial.println("CP is: " + String(getCompass()));
+      }
+      else if(command.startsWith("GP")){
+      Serial.println("GP is: " + String(getGPSLat()) + ", -" + String(getGPSLon()));
+      }
 }
 
-void runCommand(char *command, char *arg) {
-  if (strcmp(command, "MR") == 0) {
-    int val = map(atoi(arg), 0, 100, 0, 180);
-    rightMotor.write(val);
-  } else if (strcmp(command, "ML") == 0) {
-    int val = map(atoi(arg), 0, 100, 0, 180);
-    leftMotor.write(val);
-  } else if (strcmp(command, "GP") == 0) {
-    sendGPS();
-  }
+void serialEvent(){
+  while(Serial.available()){
+    char c = (char)Serial.read();
+    if(c == '['){
+      //just incase string is growing withour bound
+      msg = "";
+      msgComplete = false;
+      }
+      else if(c == ']'){
+        msgComplete = true;
+      }
+      else{
+        msg += c;
+      }
+    }
 }
-
+/////
 void loop() {
-  char msg[20 + 1];
-  getCommand(msg);
-
-  Serial.println("msg: ");
-  Serial.println(msg);
-  Serial.println("Length: ");
-  Serial.println(strlen(msg));
-
-  if (strlen(msg) <= 2) {
-    return;
+// if new signal, set to false
+  if(bNewRightMotorSignal) {
+    bNewRightMotorSignal = false;
   }
 
-  char command[2 + 1];
-  for (uint8_t i = 0; i < 2; i++) {
-    command[i] = msg[i];
-    if (msg[i] == '\0') {
-      break;
+
+
+
+  Serial.print("unAuxIn: ");
+  Serial.println(unAuxIn);
+
+  Serial.print("unRightMotor: ");
+  Serial.println(unRightMotor);
+
+  if(unAuxIn <= 1300){
+  //manual mode
+    //Serial.println("manual");
+    rightMotor.writeMicroseconds(unRightMotor);
+    leftMotor.writeMicroseconds(unLeftMotor);
+
+  } else if(unAuxIn > 1300 && unAuxIn < 1700){
+    //Serial.println("disabled");
+    rightMotor.writeMicroseconds(1500);
+    leftMotor.writeMicroseconds(1500);
+
+  } else if(unAuxIn >= 1700){
+    //Serial.println("auto");
+//    rightMotor.writeMicroseconds(unRightMotor);
+//    leftMotor.writeMicroseconds(unLeftMotor);
+
+    if(msgComplete){
+      Serial.println("msg: ");
+      Serial.println(msg);
+
+      runCommand(msg);
+      msg = "";
+      msgComplete = false;
     }
   }
-  command[2] = '\0';
+  ////////////////////////////
+//  if (GPS.newNMEAreceived()) {
+//    if (!GPS.parse(GPS.lastNMEA()))
+//      return;
+//  }
+//
+//  if (millis() - timer > 2000) {
+//    timer = millis(); // reset the timer
+//    if (GPS.fix) {
+//      Serial.print("Location: ");
+//      Serial.print(GPS.latitude, 4); Serial.print(GPS.lat);
+//      Serial.print(", ");
+//      Serial.print(GPS.longitude, 4); Serial.println(GPS.lon);
+//      Serial.print("Speed (knots): "); Serial.println(GPS.speed);
+//      Serial.print("Angle: "); Serial.println(GPS.angle);
+//      Serial.print("Altitude: "); Serial.println(GPS.altitude);
+//      Serial.print("Satellites: "); Serial.println((int)GPS.satellites);
+//    }
+//    else{
+//      Serial.println("no fix");
+//      }
+//
+//
+  delay(100);
+}
 
-  Serial.println("Command: ");
-  Serial.println(command);
 
-  char arg[18 + 1];
-  for (uint8_t i = 0; i < 18; i++) {
-    arg[i] = msg[i + 2];
-    if (msg[i + 2] == '\0') {
-      break;
-    }
+
+//void calcLeftMotor()
+//{
+//  if(digitalRead(LEFTMOTOR) == HIGH)
+//  {
+//    ulLeftMotorStart = micros();
+//  }
+//  else
+//  {
+//    unLeftMotor = (uint16_t)(micros() - ulLeftMotorStart);
+//    bUpdateFlagsShared |= LEFT_FLAG;
+//  }
+//}
+
+void calcAux()
+{
+  if(digitalRead(AUX_IN_PIN) == HIGH)
+  {
+    ulAuxStart = micros();
   }
-  arg[18] = '\0';
+  else
+  {
+    unAuxIn = (uint16_t)(micros() - ulAuxStart);
+  }
+}
 
-  Serial.println("Arg: ");
-  Serial.println(arg);
 
-  runCommand(command, arg);
+void calcRightInput()
+{
+
+  // if the pin is high, its the start of an interrupt
+  if(digitalRead(RIGHT_MOTOR_IN) == HIGH)
+  {
+    // get the time using micros - when our code gets really busy this will become inaccurate, but for the current application its
+    // easy to understand and works very well
+    ulRightMotorStart = micros();
+  }
+  else
+  {
+    unRightMotor = (int)(micros() - ulRightMotorStart);
+
+  }
+}
+
+void calcLeftInput()
+{
+
+  // if the pin is high, its the start of an interrupt
+  if(digitalRead(LEFT_MOTOR_IN) == HIGH)
+  {
+    // get the time using micros - when our code gets really busy this will become inaccurate, but for the current application its
+    // easy to understand and works very well
+    ulLeftMotorStart = micros();
+  }
+  else
+  {
+    unLeftMotor = (int)(micros() - ulLeftMotorStart);
+
+  }
 }
