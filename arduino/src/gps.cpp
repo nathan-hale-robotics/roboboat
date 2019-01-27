@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <LSM303.h>
-#include <SoftwareSerial.h>
 #include <Adafruit_GPS.h>
+#include <SoftwareSerial.h>
+
 
 #define GPSECHO  true
 
@@ -10,12 +11,11 @@ LSM303 compass;
 
 SoftwareSerial mySerial(3, 2);
 Adafruit_GPS GPS(&mySerial);
-boolean usingInterrupt = false;
-uint32_t timer = millis();
+boolean usingInterrupt = true;
 
 void useInterrupt(boolean);
 
-void setup() {
+void setupGPS() {
   Serial.begin(115200);
   Wire.begin();
   compass.init();
@@ -70,28 +70,23 @@ double getGPSLon() {
   return GPS.longitudeDegrees;
 }
 
-void loop() {
-  if (! usingInterrupt) {
-    char c = GPS.read();
-    if (GPSECHO) {
-      if (c) {
-        // Serial.print(c);
+void sendGPS() {
+  while (true) {
+    if (! usingInterrupt) {
+      char c = GPS.read();
+      if (GPSECHO) {
+        if (c) {
+          // Serial.print(c);
+        }
       }
     }
-  }
 
-  if (GPS.newNMEAreceived()) {
+    if (GPS.newNMEAreceived()) {
 
-    if (!GPS.parse(GPS.lastNMEA()))
-    return;
-  }
+      if (!GPS.parse(GPS.lastNMEA()))
+      return;
+    }
 
-  if (timer > millis()) {
-    timer = millis();
-  }
-
-  if (millis() - timer > 2000) {
-    timer = millis();
     if (GPS.fix) {
       Serial.print("[CP");
       Serial.print(getCompass());
@@ -102,8 +97,7 @@ void loop() {
       Serial.print(",");
       Serial.print(getGPSLon(), 8);
       Serial.println("]");
-      delay(100);
+      return;
     }
   }
-
 }

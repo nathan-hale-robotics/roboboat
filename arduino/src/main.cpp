@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Servo.h>
+#include <gps.cpp>
 
 Servo rightMotor;
 Servo leftMotor;
@@ -8,6 +9,7 @@ void setup() {
   rightMotor.attach(2);
   leftMotor.attach(3);
   Serial.begin(115200);
+  setupGPS();
 }
 
 char waitForChar() {
@@ -50,12 +52,15 @@ void getCommand(char *buff) {
   }
 }
 
-void runCommand(char *command, int arg) {
-  arg = map(arg, 0, 100, 0, 180);
+void runCommand(char *command, char *arg) {
   if (strcmp(command, "MR") == 0) {
-    rightMotor.write(arg);
+    int val = map(atoi(arg), 0, 100, 0, 180);
+    rightMotor.write(val);
   } else if (strcmp(command, "ML") == 0) {
-    leftMotor.write(arg);
+    int val = map(atoi(arg), 0, 100, 0, 180);
+    leftMotor.write(val);
+  } else if (strcmp(command, "GP") == 0) {
+    sendGPS();
   }
 }
 
@@ -96,5 +101,5 @@ void loop() {
   Serial.println("Arg: ");
   Serial.println(arg);
 
-  runCommand(command, atoi(arg));
+  runCommand(command, arg);
 }

@@ -1,8 +1,4 @@
-Location service and motor service are two projects, for the two arduinos onboard.
-
-The location service will constantly send information to the jetson, so it can just pull from that serial port whenever it needs GPS or compass data.
-
-The motor service will never send any information to the jetson, but will just take commands from the jetson or RC receiver, and control the motors.
+I'm using a plugin for atom called platform.io. This plugin allows me to upload and debug arduino programs from within the atom editor. Note: you will need to open 3 projects in atom: the robo-boat project, and the arduino project. Platformio will run whatever project you selected last, so you need to open a file from one of the services and then upload/run.
 
 Pins:
   Location service arduino:
