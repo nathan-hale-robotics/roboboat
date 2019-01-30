@@ -18,8 +18,8 @@ Adafruit_GPS GPS(&GPSSerial);
 
 #define GPSECHO false
 
-#define RIGHT_MOTOR_IN 2 //8, used to be Throttle
-#define LEFT_MOTOR_IN 3 //9, used to be Steer
+#define RIGHT_MOTOR_IN 2
+#define LEFT_MOTOR_IN 3
 #define AUX_IN_PIN 19 //manual (1), disabled (2), auto (3)
 
 // Assign your channel out pins
@@ -48,6 +48,10 @@ bool msgComplete = false;
 
 uint32_t timer = millis();
 
+void calcRightInput();
+void calcLeftInput();
+void calcAux();
+
 void setup() {
   msg.reserve(21);
 
@@ -75,16 +79,12 @@ void setup() {
   pinMode(RIGHT_MOTOR_IN, INPUT_PULLUP);
   pinMode(LEFT_MOTOR_IN, INPUT_PULLUP);
   pinMode(AUX_IN_PIN, INPUT_PULLUP);
+
   attachInterrupt(digitalPinToInterrupt(RIGHT_MOTOR_IN),calcRightInput,CHANGE);
-  attachInterrupt(digitalPinToInterrupt(AUX_IN_PIN),calcAux,CHANGE);
   attachInterrupt(digitalPinToInterrupt(LEFT_MOTOR_IN),calcLeftInput,CHANGE);
+  attachInterrupt(digitalPinToInterrupt(AUX_IN_PIN),calcAux,CHANGE);
 }
 
-
-
-/////////////////////
-
-///////////////////Sensor functions
 SIGNAL(TIMER0_COMPA_vect) {
   char c = GPS.read();
   if (GPSECHO) {
@@ -93,7 +93,6 @@ SIGNAL(TIMER0_COMPA_vect) {
     }
   }
 }
-
 
 float getCompass() {
   Serial.println("entered getCompass");
@@ -156,12 +155,6 @@ void loop() {
     bNewRightMotorSignal = false;
   }
 
-  Serial.print("unAuxIn: ");
-  Serial.println(unAuxIn);
-
-  Serial.print("unRightMotor: ");
-  Serial.println(unRightMotor);
-
   if (unAuxIn <= 1300) { // manual mode
     rightMotor.writeMicroseconds(unRightMotor);
     leftMotor.writeMicroseconds(unLeftMotor);
@@ -211,7 +204,6 @@ void calcAux() {
     unAuxIn = (uint16_t)(micros() - ulAuxStart);
   }
 }
-
 
 void calcRightInput() {
   if(digitalRead(RIGHT_MOTOR_IN) == HIGH) {
